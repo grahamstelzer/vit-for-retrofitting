@@ -2,6 +2,10 @@
 #       found via yt video: 
 # TODO: take this base model, tweak to add things like flash attention, lower prec. matmults
 
+
+import config
+
+
 # get images
 import torch
 from torchvision.datasets import OxfordIIITPet
@@ -67,6 +71,8 @@ from einops.layers.torch import Rearrange
 from torch import Tensor
 
 
+# NOTE : TESTED after the class code
+#          with emb_size = 128, later actual usage uses emb_dim = 32
 class PatchEmbedding(nn.Module):
     def __init__(self, in_channels = 3, patch_size = 8, emb_size = 128):
         self.patch_size = patch_size
@@ -138,7 +144,9 @@ class FeedForward(nn.Sequential):
             nn.Linear(hidden_dim, dim),
             nn.Dropout(dropout)
         )
-ff = FeedForward(dim=128, hidden_dim=256)
+
+# NOTE: config values used here
+ff = FeedForward(dim=config.D_FF, hidden_dim=config.D_HIDDEN)
 ff(torch.ones((1, 5, 128))).shape
 
 
@@ -159,9 +167,10 @@ class ResidualAdd(nn.Module):
 
 from einops import repeat
 
+# NOTE: config values used here
 class ViT(nn.Module):
-    def __init__(self, ch=3, img_size=144, patch_size=4, emb_dim=32,
-                n_layers=6, out_dim=37, dropout=0.1, heads=2):
+    def __init__(self, ch=config.N_CHANNELS, img_size=config.HEIGHT, patch_size=config.PATCH_SIZE, emb_dim=config.EMBED_DIM,
+                n_layers=config.N_LAYERS, out_dim=config.N_CLASSES, dropout=config.DROPOUT, heads=config.N_HEADS):
         super(ViT, self).__init__()
 
         # Attributes
@@ -226,8 +235,10 @@ from torch.utils.data import random_split
 train_split = int(0.8 * len(dataset))
 train, test = random_split(dataset, [train_split, len(dataset) - train_split])
 
-train_dataloader = DataLoader(train, batch_size=32, shuffle=True)
-test_dataloader = DataLoader(test, batch_size=32, shuffle=True)
+
+# NOTE: config files used here
+train_dataloader = DataLoader(train, batch_size=config.BATCH_SIZE, shuffle=True)
+test_dataloader = DataLoader(test, batch_size=config.BATCH_SIZE, shuffle=True)
 
 import torch.optim as optim
 import numpy as np
