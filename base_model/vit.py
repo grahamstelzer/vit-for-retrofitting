@@ -264,3 +264,15 @@ for epoch in range(1000):
             loss = criterion(outputs, labels)
             epoch_losses.append(loss.item())
         print(f">>> Epoch {epoch} test loss: ", np.mean(epoch_losses))
+
+
+
+
+
+
+inputs, labels = next(iter(test_dataloader))
+inputs, labels = inputs.to(device), labels.to(device)
+outputs = model(inputs)
+
+print("Predicted classes", outputs.argmax(-1))
+print("Actual classes", labels)
