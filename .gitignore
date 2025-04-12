@@ -1,1 +1,5 @@
 base_model/oxford-iiit-pet/
+oxford-iiit-pet
+oxford-iiit-pet/*
+base_model/saved_training_log.txt
+*.log
