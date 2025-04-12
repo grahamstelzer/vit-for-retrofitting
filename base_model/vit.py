@@ -3,7 +3,7 @@
 # TODO: take this base model, tweak to add things like flash attention, lower prec. matmults
 
 
-import config
+from config import *
 
 
 # get images
@@ -40,28 +40,26 @@ class Compose(object):
             image = t(image)
         return image, target
 
-def show_images(images, num_samples=40, cols=8):
-    """ Plots some samples from the dataset """
-    plt.figure(figsize=(15,15))
-    idx = int(len(dataset) / num_samples)
-    print(images)
-    for i, img in enumerate(images):
-        if i % idx == 0:
-            plt.subplot(int(num_samples/cols) + 1, cols, int(i/idx) + 1)
-            plt.imshow(to_pil_image(img[0]))
+# def show_images(images, num_samples=40, cols=8):
+#     """ Plots some samples from the dataset """
+#     plt.figure(figsize=(15,15))
+#     idx = int(len(dataset) / num_samples)
+#     print(images)
+#     for i, img in enumerate(images):
+#         if i % idx == 0:
+#             plt.subplot(int(num_samples/cols) + 1, cols, int(i/idx) + 1)
+#             plt.imshow(to_pil_image(img[0]))
+
+from torchvision.transforms import Normalize
 
 
-to_tensor = [Resize((144, 144)), ToTensor()]
+to_tensor = [Resize((144, 144)), ToTensor(), Normalize(mean=[0.5]*3, std=[0.5]*3)]
 # initially above for good syntax practice i assume but moved down here to make the dataset=
 #   make more sense
 
-# 200 images for each pet
-dataset = OxfordIIITPet(root=".", download=True, transforms=Compose(to_tensor)) 
-# NOTE: apparently we can just apply the transformations list (via Compose()) when creating
-#           an instance of the oxford dataset 
-show_images(dataset)
 
-
+dataset = OxfordIIITPet(root=".", download=True, transforms=Compose(to_tensor))
+# dataset = AdjustLabelDataset(raw_dataset)
 
 
 
@@ -90,10 +88,10 @@ class PatchEmbedding(nn.Module):
         return x
 
 # Run a quick test
-sample_datapoint = torch.unsqueeze(dataset[0][0], 0)
-print("Initial shape: ", sample_datapoint.shape)
-embedding = PatchEmbedding()(sample_datapoint)
-print("Patches shape: ", embedding.shape)
+# sample_datapoint = torch.unsqueeze(dataset[0][0], 0)
+# print("Initial shape: ", sample_datapoint.shape)
+# embedding = PatchEmbedding()(sample_datapoint)
+# print("Patches shape: ", embedding.shape)
 
 
 
@@ -107,7 +105,8 @@ class Attention(nn.Module):
         self.n_heads = n_heads
         self.att = torch.nn.MultiheadAttention(embed_dim=dim,
                                                num_heads=n_heads,
-                                               dropout=dropout)
+                                               dropout=dropout,
+                                               batch_first=True)
         self.q = torch.nn.Linear(dim, dim)
         self.k = torch.nn.Linear(dim, dim)
         self.v = torch.nn.Linear(dim, dim)
@@ -116,7 +115,7 @@ class Attention(nn.Module):
         q = self.q(x)
         k = self.k(x)
         v = self.v(x)
-        attn_output, attn_output_weights = self.att(x, x, x)
+        attn_output, attn_output_weights = self.att(q, k, v)
         return attn_output
 
 
@@ -136,7 +135,7 @@ class PreNorm(nn.Module):
 
 
 class FeedForward(nn.Sequential):
-    def __init__(self, dim, hidden_dim, dropout = 0.):
+    def __init__(self, dim, hidden_dim, dropout = 0.1):
         super().__init__(
             nn.Linear(dim, hidden_dim),
             nn.GELU(),
@@ -146,8 +145,8 @@ class FeedForward(nn.Sequential):
         )
 
 # NOTE: config values used here
-ff = FeedForward(dim=config.D_FF, hidden_dim=config.D_HIDDEN)
-ff(torch.ones((1, 5, 128))).shape
+# ff = FeedForward(dim=D_FF, hidden_dim=D_HIDDEN)
+# ff(torch.ones((1, 5, 128))).shape
 
 
 
@@ -169,8 +168,8 @@ from einops import repeat
 
 # NOTE: config values used here
 class ViT(nn.Module):
-    def __init__(self, ch=config.N_CHANNELS, img_size=config.HEIGHT, patch_size=config.PATCH_SIZE, emb_dim=config.EMBED_DIM,
-                n_layers=config.N_LAYERS, out_dim=config.N_CLASSES, dropout=config.DROPOUT, heads=config.N_HEADS):
+    def __init__(self, ch=3, img_size=144, patch_size=16, emb_dim=128,
+                n_layers=6, out_dim=37, dropout=0.1, heads=2):
         super(ViT, self).__init__()
 
         # Attributes
@@ -201,6 +200,12 @@ class ViT(nn.Module):
         # Classification head
         self.head = nn.Sequential(nn.LayerNorm(emb_dim), nn.Linear(emb_dim, out_dim))
 
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+
 
     def forward(self, img):
         # Get patch embedding vectors
@@ -220,9 +225,9 @@ class ViT(nn.Module):
         return self.head(x[:, 0, :])
 
 
-model = ViT()
-print(model)
-model(torch.ones((1, 3, 144, 144)))
+# model = ViT()
+# print(model)
+# model(torch.ones((1, 3, 144, 144)))
 
 
 
@@ -232,53 +237,141 @@ model(torch.ones((1, 3, 144, 144)))
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
+
 train_split = int(0.8 * len(dataset))
 train, test = random_split(dataset, [train_split, len(dataset) - train_split])
 
-
 # NOTE: config files used here
-train_dataloader = DataLoader(train, batch_size=config.BATCH_SIZE, shuffle=True)
-test_dataloader = DataLoader(test, batch_size=config.BATCH_SIZE, shuffle=True)
+train_dataloader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
+test_dataloader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=True)
+
+# TODO: SOMETHING IS WRONG THIS PRINTS: "Training dataset min: tensor(-0.9765) max: tensor(1.)"
+# print("Training dataset min:", torch.min(train.dataset[0][0]), "max:", torch.max(train.dataset[0][0]))
+# exit()
 
 import torch.optim as optim
 import numpy as np
+import logging
+from datetime import datetime
 
 device = "cuda"
 model = ViT().to(device)
-optimizer = optim.AdamW(model.parameters(), lr=0.001)
+
+# weight initialization
+model.apply(model._init_weights)
+
+# NOTE: config values used here
+# optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+
+
 criterion = nn.CrossEntropyLoss()
 
 
+train_loss_curve = []
+test_loss_curve = []
 
 
+# double check dimensions and patch sizes:
+print("Embedding dim:", model.patch_embedding.projection[1].out_features)
+print("Patch size:", model.patch_embedding.patch_size)
 
 
-for epoch in range(1000):
-    epoch_losses = []
+# # check label dist
+# from collections import Counter
+# label_counts = Counter([label for _, label in train])
+# print("Label distribution (train):", label_counts)
+
+
+# single input test
+
+# small_train_subset = torch.utils.data.Subset(train, range(10))
+# small_train_loader = DataLoader(small_train_subset, batch_size=1, shuffle=True)
+
+# one_input, one_label = next(iter(small_train_loader))
+# one_input, one_label = one_input[0].unsqueeze(0).to(device), one_label[0].unsqueeze(0).to(device)
+
+# for i in range(20):
+#     model.train()
+#     optimizer.zero_grad()
+#     output = model(one_input)
+#     loss = criterion(output, one_label)
+#     loss.backward()
+#     optimizer.step()
+#     print(f"[{i}] Loss: {loss.item()}")
+
+# Set up logging
+logging.basicConfig(
+    filename='training.log',
+    filemode='a',
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+logging.info("Logging initialized. Starting training process.")
+
+epoch_count = 0
+
+# training loop:
+for epoch in range(epoch_count, epoch_count + 100):
+
+    logging.info(f"================== Epoch {epoch} Start ==================")
+
+    epoch_losses = []  # for plotting
     model.train()
+
     for step, (inputs, labels) in enumerate(train_dataloader):
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
+
         outputs = model(inputs)
+        logging.info(f"Predicted classes: {outputs.argmax(-1).tolist()}")
+        logging.info(f"Actual classes:    {labels.tolist()}")
+
+        print(f"Predicted classes: {outputs.argmax(-1).tolist()}")
+        print(f"Actual classes:    {labels.tolist()}")
+
         loss = criterion(outputs, labels)
+
+        logging.info(f"Current Loss: {loss}")
+
         loss.backward()
         optimizer.step()
+
         epoch_losses.append(loss.item())
+
+    mean_train_loss = np.mean(epoch_losses)
+    train_loss_curve.append(mean_train_loss)
+
     if epoch % 5 == 0:
-        print(f">>> Epoch {epoch} train loss: ", np.mean(epoch_losses))
-        epoch_losses = []
-        # Something was strange when using this?
-        # model.eval()
-        for step, (inputs, labels) in enumerate(test_dataloader):
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            epoch_losses.append(loss.item())
-        print(f">>> Epoch {epoch} test loss: ", np.mean(epoch_losses))
+        print(f"[Epoch {epoch}] Train loss: {mean_train_loss:.4f}")
 
 
+    logging.info(f"================== Epoch {epoch} End ====================")
 
 
+import matplotlib.pyplot as plt
+
+plt.plot(train_loss_curve, label="Train Loss")
+plt.plot(test_loss_curve, label="Test Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Cross-Entropy Loss")
+plt.title("Loss Curve")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Save the training log to a file
+with open("training.log", "r") as log_file:
+    log_content = log_file.read()
+    # Generate a unique filename based on the current date and time
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"training_log_{current_time}.txt"
+
+    with open(log_filename, "w") as saved_log_file:
+        saved_log_file.write(log_content)
+
+    print(f"Training log has been saved to '{log_filename}'.")
 
 
 inputs, labels = next(iter(test_dataloader))
