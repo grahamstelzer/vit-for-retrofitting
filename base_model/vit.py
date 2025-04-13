@@ -3,7 +3,14 @@
 # TODO: take this base model, tweak to add things like flash attention, lower prec. matmults
 
 
-from config import *
+import sys
+import os
+
+# get config from configs folder
+config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'configs'))
+sys.path.insert(0, config_path)
+
+from vit_base_config import *
 
 
 # get images

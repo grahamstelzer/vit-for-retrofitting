@@ -3,3 +3,5 @@ oxford-iiit-pet
 oxford-iiit-pet/*
 base_model/saved_training_log.txt
 *.log
+
+__pycache__/
