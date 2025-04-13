@@ -3,14 +3,7 @@
 # TODO: take this base model, tweak to add things like flash attention, lower prec. matmults
 
 
-import sys
-import os
-
-# get config from configs folder
-config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'configs'))
-sys.path.insert(0, config_path)
-
-from vit_base_config import *
+from config import *
 
 
 # get images
@@ -79,7 +72,7 @@ from torch import Tensor
 # NOTE : TESTED after the class code
 #          with emb_size = 128, later actual usage uses emb_dim = 32
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels = 3, patch_size = 8, emb_size = 128):
+    def __init__(self, in_channels = 3, patch_size = 4, emb_size = 128):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -175,7 +168,7 @@ from einops import repeat
 
 # NOTE: config values used here
 class ViT(nn.Module):
-    def __init__(self, ch=3, img_size=144, patch_size=16, emb_dim=128,
+    def __init__(self, ch=3, img_size=144, patch_size=8, emb_dim=128,
                 n_layers=6, out_dim=37, dropout=0.1, heads=2):
         super(ViT, self).__init__()
 
@@ -315,12 +308,26 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-logging.info("Logging initialized. Starting training process.")
+logging.info("Logging initialized.")
+logging.info(f"Current config:")
+logging.info(f"batch_size: {BATCH_SIZE}:")
+logging.info(f"height: {HEIGHT}:")
+logging.info(f"width: {WIDTH}:")
+logging.info(f"num_channels: {N_CHANNELS}:")
+logging.info(f"patch_size: {PATCH_SIZE}:")
+logging.info(f"embed_dim: {EMBED_DIM}:")
+logging.info(f"num_layers: {N_LAYERS}:")
+logging.info(f"num_heads: {N_HEADS}:")
+logging.info(f"dropout: {DROPOUT}:")
+# logging.info(f"learning_rate: {LEARNING_RATE}:")
+# logging.info(f"weight_decay: {WEIGHT_DECAY}:")
+# logging.info(f"device: {device}:")
+
 
 epoch_count = 0
 
 # training loop:
-for epoch in range(epoch_count, epoch_count + 100):
+for epoch in range(epoch_count, epoch_count + 200):
 
     logging.info(f"================== Epoch {epoch} Start ==================")
 
