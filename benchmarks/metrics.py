@@ -5,7 +5,10 @@ import os
 config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'configs'))
 sys.path.insert(0, config_path)
 
-from vit_base_config import *
+try:
+    from vit_base_config import *
+except ModuleNotFoundError:
+    raise ModuleNotFoundError("Ensure 'vit_base_config.py' exists in the 'configs' directory.")
 
 
 
