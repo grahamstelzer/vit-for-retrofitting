@@ -32,10 +32,12 @@ D_HIDDEN = 256
 
 # number of output classes
 #   - oxford iiit pet: 37 (allegedly)
+# NOTE: written as out_dim in ViT() init
 N_CLASSES = 37
 
 DROPOUT = 0.1
 # DATASET = 
 # DATA_PATH = 
-# LEARNING_RATE = 
+LEARNING_RATE = 1e-4
 # TRAIN_STEPS = 
+WEIGHT_DECAY = 0.01

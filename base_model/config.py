@@ -2,6 +2,9 @@
 #  possibly main.py if we want to make cli args 
 import torch
 
+# device
+DEVICE = "cuda"
+
 # batch size
 BATCH_SIZE = 32
 
@@ -15,10 +18,12 @@ WIDTH = 144
 N_CHANNELS = 3
 
 # patch szie
-PATCH_SIZE = 4
+#   16 trains really fast on 200 epochs
+PATCH_SIZE = 16
 
 # embed dim
-EMBED_DIM = 32
+#   TODO: check this is working correctly
+EMBED_DIM = 128
 
 # number of layers
 N_LAYERS = 6
@@ -32,10 +37,12 @@ D_HIDDEN = 256
 
 # number of output classes
 #   - oxford iiit pet: 37 (allegedly)
+# NOTE: written as out_dim in ViT() init
 N_CLASSES = 37
 
 DROPOUT = 0.1
 # DATASET = 
 # DATA_PATH = 
-# LEARNING_RATE = 
+LEARNING_RATE = 1e-4
 # TRAIN_STEPS = 
+WEIGHT_DECAY = 0.01

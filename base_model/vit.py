@@ -6,6 +6,8 @@
 from config import *
 
 
+
+
 # get images
 import torch
 from torchvision.datasets import OxfordIIITPet
@@ -53,7 +55,8 @@ class Compose(object):
 from torchvision.transforms import Normalize
 
 
-to_tensor = [Resize((144, 144)), ToTensor(), Normalize(mean=[0.5]*3, std=[0.5]*3)]
+# NOTE: config files used here
+to_tensor = [Resize((HEIGHT, WIDTH)), ToTensor(), Normalize(mean=[0.5]*3, std=[0.5]*3)]
 # initially above for good syntax practice i assume but moved down here to make the dataset=
 #   make more sense
 
@@ -72,7 +75,7 @@ from torch import Tensor
 # NOTE : TESTED after the class code
 #          with emb_size = 128, later actual usage uses emb_dim = 32
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels = 3, patch_size = 4, emb_size = 128):
+    def __init__(self, in_channels = N_CHANNELS, patch_size = PATCH_SIZE, emb_size = EMBED_DIM):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -144,11 +147,6 @@ class FeedForward(nn.Sequential):
             nn.Dropout(dropout)
         )
 
-# NOTE: config values used here
-# ff = FeedForward(dim=D_FF, hidden_dim=D_HIDDEN)
-# ff(torch.ones((1, 5, 128))).shape
-
-
 
 
 class ResidualAdd(nn.Module):
@@ -167,9 +165,11 @@ class ResidualAdd(nn.Module):
 from einops import repeat
 
 # NOTE: config values used here
+# TODO: currently single arg for img_size, must be able to account for variable height and widths eventually
+#         UNLESS everything input gets transformed to a standard
 class ViT(nn.Module):
-    def __init__(self, ch=3, img_size=144, patch_size=8, emb_dim=128,
-                n_layers=6, out_dim=37, dropout=0.1, heads=2):
+    def __init__(self, ch=N_CHANNELS, img_size=HEIGHT, patch_size=PATCH_SIZE, emb_dim=EMBED_DIM,
+                n_layers=N_LAYERS, out_dim=N_CLASSES, dropout=DROPOUT, heads=N_HEADS):
         super(ViT, self).__init__()
 
         # Attributes
@@ -200,6 +200,7 @@ class ViT(nn.Module):
         # Classification head
         self.head = nn.Sequential(nn.LayerNorm(emb_dim), nn.Linear(emb_dim, out_dim))
 
+    # TODO: double check this is necessary
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight)
@@ -225,12 +226,6 @@ class ViT(nn.Module):
         return self.head(x[:, 0, :])
 
 
-# model = ViT()
-# print(model)
-# model(torch.ones((1, 3, 144, 144)))
-
-
-
 
 
 
@@ -254,17 +249,45 @@ import numpy as np
 import logging
 from datetime import datetime
 
-device = "cuda"
+device = DEVICE
 model = ViT().to(device)
 
-# weight initialization
+
+# weight initialization 
+# NOTE: i think this is slightly different than getting pretrained weights
+#         like this just makes sure weights exist
 model.apply(model._init_weights)
+
+print("load presaved weights? y/n")
+presaved = input()
+if (presaved == "y"):
+    model.load_state_dict(torch.load("./weights/vit_weights.pth", weights_only=True))
+    model.eval()
+
+print("Model's state_dict:")
+for param_tensor in model.state_dict():
+    print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
+# save weights
+WEIGHTS_PATH = "weights/vit_weights.pth"
+torch.save(model.state_dict(), WEIGHTS_PATH)
+
+
+
+
+
+
+
+
+
+
+
 
 # NOTE: config values used here
 # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
-
+# loss func
 criterion = nn.CrossEntropyLoss()
 
 
@@ -303,25 +326,25 @@ print("Patch size:", model.patch_embedding.patch_size)
 # Set up logging
 logging.basicConfig(
     filename='training.log',
-    filemode='a',
+    filemode='w',  # Use 'w' to clear the file if it already exists
     format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
 logging.info("Logging initialized.")
 logging.info(f"Current config:")
-logging.info(f"batch_size: {BATCH_SIZE}:")
-logging.info(f"height: {HEIGHT}:")
-logging.info(f"width: {WIDTH}:")
-logging.info(f"num_channels: {N_CHANNELS}:")
-logging.info(f"patch_size: {PATCH_SIZE}:")
-logging.info(f"embed_dim: {EMBED_DIM}:")
-logging.info(f"num_layers: {N_LAYERS}:")
-logging.info(f"num_heads: {N_HEADS}:")
-logging.info(f"dropout: {DROPOUT}:")
-# logging.info(f"learning_rate: {LEARNING_RATE}:")
-# logging.info(f"weight_decay: {WEIGHT_DECAY}:")
-# logging.info(f"device: {device}:")
+logging.info(f"batch_size: {BATCH_SIZE}")
+logging.info(f"height: {HEIGHT}")
+logging.info(f"width: {WIDTH}")
+logging.info(f"num_channels: {N_CHANNELS}")
+logging.info(f"patch_size: {PATCH_SIZE}")
+logging.info(f"embed_dim: {EMBED_DIM}")
+logging.info(f"num_layers: {N_LAYERS}")
+logging.info(f"num_heads: {N_HEADS}")
+logging.info(f"dropout: {DROPOUT}")
+logging.info(f"learning_rate: {LEARNING_RATE}")
+logging.info(f"weight_decay: {WEIGHT_DECAY}")
+logging.info(f"device: {DEVICE}")
 
 
 epoch_count = 0
