@@ -261,25 +261,16 @@ model.apply(model._init_weights)
 print("load presaved weights? y/n")
 presaved = input()
 if (presaved == "y"):
-    model.load_state_dict(torch.load("./weights/vit_weights.pth", weights_only=True))
-    model.eval()
+    try:
+        model.load_state_dict(torch.load("./weights/vit_weights.pth", weights_only=True))
+        model.eval()
+        print("Weights loaded successfully.")
+    except Exception as e:
+        print(f"Error loading weights: {e}")
 
 print("Model's state_dict:")
 for param_tensor in model.state_dict():
     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
-
-# save weights
-WEIGHTS_PATH = "weights/vit_weights.pth"
-torch.save(model.state_dict(), WEIGHTS_PATH)
-
-
-
-
-
-
-
-
-
 
 
 
@@ -346,6 +337,9 @@ logging.info(f"learning_rate: {LEARNING_RATE}")
 logging.info(f"weight_decay: {WEIGHT_DECAY}")
 logging.info(f"device: {DEVICE}")
 
+# Record the start time
+start_time = datetime.now()
+
 
 epoch_count = 0
 
@@ -387,6 +381,28 @@ for epoch in range(epoch_count, epoch_count + 200):
     logging.info(f"================== Epoch {epoch} End ====================")
 
 
+
+# save weights:
+WEIGHTS_PATH = "weights/vit_weights.pth"
+print(f"saving weigts to {WEIGHTS_PATH}")
+torch.save(model.state_dict(), WEIGHTS_PATH)
+
+
+# Record the end time
+end_time = datetime.now()
+
+# Calculate and log the elapsed time
+elapsed_time = end_time - start_time
+logging.info(f"Training started at: {start_time}")
+logging.info(f"Training ended at: {end_time}")
+logging.info(f"Total training time: {elapsed_time}")
+
+print(f"Training started at: {start_time}")
+print(f"Training ended at: {end_time}")
+print(f"Total training time: {elapsed_time}")
+
+
+
 import matplotlib.pyplot as plt
 
 plt.plot(train_loss_curve, label="Train Loss")
@@ -415,5 +431,5 @@ inputs, labels = next(iter(test_dataloader))
 inputs, labels = inputs.to(device), labels.to(device)
 outputs = model(inputs)
 
-print("Predicted classes", outputs.argmax(-1))
-print("Actual classes", labels)
+# print("Predicted classes", outputs.argmax(-1))
+# print("Actual classes", labels)
